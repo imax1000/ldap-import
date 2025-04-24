@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/gen2brain/iup-go/iup"
 	"github.com/go-ldap/ldap/v3"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
@@ -51,7 +52,8 @@ type ProgressDialog struct {
 }
 
 var (
-	config LDAPConfig
+	config     LDAPConfig
+	counterDlg iup.Ihandle
 )
 
 func main() {
@@ -207,10 +209,6 @@ func createMainWindow() (*gtk.Window, error) {
 		filter.AddPattern("*.ldif")
 		fileChooser.AddFilter(filter)
 
-		filter.SetName("TXT Files")
-		filter.AddPattern("*.txt")
-		fileChooser.AddFilter(filter)
-
 		if fileChooser.Run() == gtk.RESPONSE_ACCEPT {
 			filename := fileChooser.GetFilename()
 			fileEntry.SetText(filename)
@@ -292,23 +290,12 @@ func createMainWindow() (*gtk.Window, error) {
 		return nil, err
 	}
 	loadBtn.Connect("clicked", func() {
-		//	var config LDAPConfig
 
-		//		config.Host, err =
-		//		config := LDAPConfig{
 		config.Host, err = hostEntry.GetText()
 		config.Port, err = portEntry.GetText()
 		config.BindDN, err = bindDNEntry.GetText()
 		config.Password, err = passEntry.GetText()
 		config.BaseDN, err = baseDNEntry.GetText()
-		//		}
-		//		config := LDAPConfig{
-		//			Host:     hostEntry.GetText(),
-		//			Port:     portEntry.GetText(),
-		//			BindDN:   bindDNEntry.GetText(),
-		//			Password: passEntry.GetText(),
-		//			BaseDN:   baseDNEntry.GetText(),
-		//		}
 
 		targetOU := ouCombo.GetActiveText()
 		if targetOU == "" {
@@ -326,6 +313,8 @@ func createMainWindow() (*gtk.Window, error) {
 		if err != nil {
 			showErrorDialog(win, "Failed to parse LDIF file: "+err.Error())
 			return
+		}
+		if len(entries) == 0 {
 		}
 
 		go func() {
@@ -356,6 +345,7 @@ func createMainWindow() (*gtk.Window, error) {
 			glib.IdleAdd(func() {
 				showInfoDialog(win, "Data loaded successfully!")
 			})
+
 		}()
 	})
 
@@ -366,292 +356,6 @@ func createMainWindow() (*gtk.Window, error) {
 	win.Add(grid)
 	return win, nil
 }
-
-/*
-func createMainWindow() (*gtk.Window, error) {
-	// Create a new window
-	win, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
-	if err != nil {
-		return nil, err
-	}
-
-	win.SetTitle("LDAP Data Loader")
-	win.SetDefaultSize(400, 300)
-	win.Connect("destroy", func() {
-		gtk.MainQuit()
-	})
-
-	// Create main grid
-	grid, err := gtk.GridNew()
-	if err != nil {
-		return nil, err
-	}
-	grid.SetOrientation(gtk.ORIENTATION_VERTICAL)
-	grid.SetBorderWidth(10)
-	grid.SetRowSpacing(5)
-	grid.SetColumnSpacing(5)
-
-	// LDAP Connection Settings
-	connLabel, err := gtk.LabelNew("LDAP Connection Settings")
-	if err != nil {
-		return nil, err
-	}
-	grid.Attach(connLabel, 0, 0, 2, 1)
-
-	// Host
-	hostLabel, err := gtk.LabelNew("Host:")
-	if err != nil {
-		return nil, err
-	}
-
-	hostEntry, err := gtk.EntryNew()
-	if err != nil {
-		return nil, err
-	}
-	hostEntry.SetPlaceholderText("ldap.example.com")
-	grid.Attach(hostLabel, 0, 1, 1, 1)
-	grid.Attach(hostEntry, 1, 1, 1, 1)
-	hostEntry.SetText("localhost")
-
-	// Port
-	portLabel, err := gtk.LabelNew("Port:")
-	if err != nil {
-		return nil, err
-	}
-	portEntry, err := gtk.EntryNew()
-	if err != nil {
-		return nil, err
-	}
-	portEntry.SetText("389")
-	grid.Attach(portLabel, 0, 2, 1, 1)
-	grid.Attach(portEntry, 1, 2, 1, 1)
-
-	// Bind DN
-	bindDNLabel, err := gtk.LabelNew("Bind DN:")
-	if err != nil {
-		return nil, err
-	}
-
-	bindDNEntry, err := gtk.EntryNew()
-	if err != nil {
-		return nil, err
-	}
-	bindDNEntry.SetPlaceholderText("cn=admin,dc=mail,dc=local")
-	grid.Attach(bindDNLabel, 0, 3, 1, 1)
-	grid.Attach(bindDNEntry, 1, 3, 1, 1)
-	bindDNEntry.SetText("cn=admin,dc=mail,dc=local")
-
-	// Password
-	passLabel, err := gtk.LabelNew("Password:")
-	if err != nil {
-		return nil, err
-	}
-	passEntry, err := gtk.EntryNew()
-	if err != nil {
-		return nil, err
-	}
-	passEntry.SetText("123456")
-	passEntry.SetVisibility(false)
-	grid.Attach(passLabel, 0, 4, 1, 1)
-	grid.Attach(passEntry, 1, 4, 1, 1)
-
-	// Base DN
-	baseDNLabel, err := gtk.LabelNew("Base DN:")
-	if err != nil {
-		return nil, err
-	}
-	baseDNEntry, err := gtk.EntryNew()
-	if err != nil {
-		return nil, err
-	}
-	baseDNEntry.SetPlaceholderText("dc=mail,dc=local")
-	grid.Attach(baseDNLabel, 0, 5, 1, 1)
-	grid.Attach(baseDNEntry, 1, 5, 1, 1)
-	baseDNEntry.SetText("dc=mail,dc=local")
-
-	// File selection
-	fileLabel, err := gtk.LabelNew("LDIF File:")
-	if err != nil {
-		return nil, err
-	}
-	fileEntry, err := gtk.EntryNew()
-	if err != nil {
-		return nil, err
-	}
-	fileEntry.SetEditable(false)
-	fileBtn, err := gtk.ButtonNewWithLabel("Select File")
-	if err != nil {
-		return nil, err
-	}
-	fileBtn.Connect("clicked", func() {
-		fileChooser, err := gtk.FileChooserDialogNewWith2Buttons(
-			"Select LDIF File",
-			win,
-			gtk.FILE_CHOOSER_ACTION_OPEN,
-			"Cancel",
-			gtk.RESPONSE_CANCEL,
-			"Open",
-			gtk.RESPONSE_ACCEPT,
-		)
-		if err != nil {
-			log.Println("Error creating file chooser:", err)
-			return
-		}
-		defer fileChooser.Destroy()
-
-		filter, err := gtk.FileFilterNew()
-		if err != nil {
-			log.Println("Error creating file filter:", err)
-			return
-		}
-		filter.SetName("LDIF Files")
-		filter.AddPattern("*.ldif")
-		fileChooser.AddFilter(filter)
-
-		if fileChooser.Run() == gtk.RESPONSE_ACCEPT {
-			filename := fileChooser.GetFilename()
-			fileEntry.SetText(filename)
-		}
-	})
-	grid.Attach(fileLabel, 0, 6, 1, 1)
-	grid.Attach(fileEntry, 1, 6, 1, 1)
-	grid.Attach(fileBtn, 2, 6, 1, 1)
-
-	// OU selection
-	ouLabel, err := gtk.LabelNew("Target OU:")
-	if err != nil {
-		return nil, err
-	}
-	ouCombo, err := gtk.ComboBoxTextNew()
-	if err != nil {
-		return nil, err
-	}
-	refreshBtn, err := gtk.ButtonNewWithLabel("Refresh OUs")
-	if err != nil {
-		return nil, err
-	}
-	refreshBtn.Connect("clicked", func() {
-		var config LDAPConfig
-
-		config.Host, err = hostEntry.GetText()
-		config.Port, err = portEntry.GetText()
-		config.BindDN, err = bindDNEntry.GetText()
-		config.Password, err = passEntry.GetText()
-		config.BaseDN, err = baseDNEntry.GetText()
-
-		ous, err := getOUs(config)
-		if err != nil {
-			showErrorDialog(win, "Failed to get OUs: "+err.Error())
-			return
-		}
-
-		ouCombo.RemoveAll()
-		for _, ou := range ous {
-			ouCombo.AppendText(ou)
-		}
-	})
-	grid.Attach(ouLabel, 0, 7, 1, 1)
-	grid.Attach(ouCombo, 1, 7, 1, 1)
-	grid.Attach(refreshBtn, 2, 7, 1, 1)
-
-	// Buttons
-	buttonsBox, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 5)
-	if err != nil {
-		return nil, err
-	}
-
-	buildTreeBtn, err := gtk.ButtonNewWithLabel("Build Tree")
-	if err != nil {
-		return nil, err
-	}
-	buildTreeBtn.Connect("clicked", func() {
-		filename, err := fileEntry.GetText()
-		if filename == "" {
-			showErrorDialog(win, "Please select an LDIF file first")
-			return
-		}
-
-		entries, err := parseLDIF(filename)
-		if err != nil {
-			showErrorDialog(win, "Failed to parse LDIF file: "+err.Error())
-			return
-		}
-
-		showTreeWindow(win, buildOrgTree(entries))
-	})
-
-	loadBtn, err := gtk.ButtonNewWithLabel("Load Data")
-	if err != nil {
-		return nil, err
-	}
-	loadBtn.Connect("clicked", func() {
-		var config LDAPConfig
-
-		config.Host, err = hostEntry.GetText()
-		config.Port, err = portEntry.GetText()
-		config.BindDN, err = bindDNEntry.GetText()
-		config.Password, err = passEntry.GetText()
-		config.BaseDN, err = baseDNEntry.GetText()
-
-		targetOU := ouCombo.GetActiveText()
-		if targetOU == "" {
-			showErrorDialog(win, "Please select a target OU")
-			return
-		}
-
-		filename, err := fileEntry.GetText()
-		if filename == "" {
-			showErrorDialog(win, "Please select an LDIF file first")
-			return
-		}
-
-		entries, err := parseLDIF(filename)
-		if err != nil {
-			showErrorDialog(win, "Failed to parse LDIF file: "+err.Error())
-			return
-		}
-
-		go func() {
-			progressDialog := createProgressDialog(win, "Loading Data", "Deleting old entries...")
-			defer progressDialog.Window.Destroy()
-
-			// Delete old entries
-			err := deleteOldEntries(config, targetOU, progressDialog)
-			if err != nil {
-				glib.IdleAdd(func() {
-					showErrorDialog(win, "Failed to delete old entries: "+err.Error())
-				})
-				return
-			}
-
-			if progressDialog.IsCanceled() {
-				return
-			}
-
-			// Add new entries
-			progressDialog.SetLabel("Adding new entries...")
-			err = addNewEntries(config, targetOU, entries, progressDialog)
-			if err != nil {
-				glib.IdleAdd(func() {
-					showErrorDialog(win, "Failed to add new entries: "+err.Error())
-				})
-				return
-			}
-
-			glib.IdleAdd(func() {
-				showInfoDialog(win, "Data loaded successfully!")
-			})
-		}()
-	})
-
-	buttonsBox.PackStart(buildTreeBtn, true, true, 0)
-	buttonsBox.PackStart(loadBtn, true, true, 0)
-	grid.Attach(buttonsBox, 0, 8, 3, 1)
-
-	win.Add(grid)
-	return win, nil
-}
-*/
 
 func getOUs(config LDAPConfig) ([]string, error) {
 	conn, err := ldap.Dial("tcp", fmt.Sprintf("%s:%s", config.Host, config.Port))
@@ -836,94 +540,8 @@ func buildOrgTree(entries []LDIFEntry) *OrgNode {
 	return root
 }
 
-/*
-func showTreeWindow(parent *gtk.Window, root *OrgNode) {
-	treeWin, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
-	if err != nil {
-		log.Println("Error creating tree window:", err)
-		return
-	}
-
-	treeWin.SetTitle("Organizational Structure")
-	treeWin.SetDefaultSize(400, 500)
-	treeWin.SetTransientFor(parent)
-	treeWin.SetModal(true)
-
-	scrolledWin, err := gtk.ScrolledWindowNew(nil, nil)
-	if err != nil {
-		log.Println("Error creating scrolled window:", err)
-		treeWin.Destroy()
-		return
-	}
-
-	treeView, err := gtk.TreeViewNew()
-	if err != nil {
-		log.Println("Error creating tree view:", err)
-		treeWin.Destroy()
-		return
-	}
-
-	// Create tree store
-	treeStore, err := gtk.TreeStoreNew(glib.TYPE_STRING)
-	if err != nil {
-		log.Println("Error creating tree store:", err)
-		treeWin.Destroy()
-		return
-	}
-
-	// Populate tree store
-	populateTreeStore(treeStore, nil, root)
-
-	// Create column
-	col, err := gtk.TreeViewColumnNew()
-	if err != nil {
-		log.Println("Error creating tree column:", err)
-		treeWin.Destroy()
-		return
-	}
-
-	col.SetTitle("Structure")
-
-	renderer, err := gtk.CellRendererTextNew()
-	if err != nil {
-		log.Println("Error creating cell renderer:", err)
-		treeWin.Destroy()
-		return
-	}
-
-	col.PackStart(renderer, true)
-	col.AddAttribute(renderer, "text", 0)
-	treeView.AppendColumn(col)
-
-	treeView.SetModel(treeStore)
-	scrolledWin.Add(treeView)
-	treeWin.Add(scrolledWin)
-
-	treeWin.ShowAll()
-}
-
-func populateTreeStore(store *gtk.TreeStore, parent *gtk.TreeIter, node *OrgNode) {
-	iter := store.Append(parent)
-	store.SetValue(iter, 0, node.Name)
-
-	for _, child := range node.Children {
-		populateTreeStore(store, iter, child)
-	}
-}
-*/
-
 func showTreeWindow(parent *gtk.Window, root *OrgNode, entries []LDIFEntry, config LDAPConfig) {
 
-	//	var config LDAPConfig
-
-	//		config.Host, err =
-	//		config := LDAPConfig{
-	/*	config.Host, err = hostEntry.GetText()
-		config.Port, err = portEntry.GetText()
-		config.BindDN, err = bindDNEntry.GetText()
-		config.Password, err = passEntry.GetText()
-		config.BaseDN, err = baseDNEntry.GetText()
-	*/
 	// Create tree window
 	treeWindow, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
 	if err != nil {
@@ -959,9 +577,10 @@ func showTreeWindow(parent *gtk.Window, root *OrgNode, entries []LDIFEntry, conf
 		treeWindow.Destroy()
 		return
 	}
-	exportBtn.Connect("clicked", func() {
-		exportToLDIF(parent, entries, config.BaseDN)
-	})
+	////////////////////////////////////////////////////////////////////
+	//	exportBtn.Connect("clicked", func() {
+	//		exportToLDIF(parent, entries, config.BaseDN)
+	//	})
 
 	// Create close button
 	closeBtn, err := gtk.ButtonNewWithLabel("Close")
@@ -1014,6 +633,10 @@ func showTreeWindow(parent *gtk.Window, root *OrgNode, entries []LDIFEntry, conf
 	}
 
 	column.SetTitle("Organizational Structure")
+
+	exportBtn.Connect("clicked", func() {
+		exportTreeToLDIF(parent, treeStore, root)
+	})
 
 	renderer, err := gtk.CellRendererTextNew()
 	if err != nil {
@@ -1261,6 +884,119 @@ func showInfoDialog(parent *gtk.Window, message string) {
 	)
 	dialog.Run()
 	dialog.Destroy()
+}
+
+func exportTreeToLDIF(parent *gtk.Window, treeStore *gtk.TreeStore, node *OrgNode) {
+	// Create save file dialog
+	saveDialog, err := gtk.FileChooserDialogNewWith2Buttons(
+		"Save as LDIF",
+		parent,
+		gtk.FILE_CHOOSER_ACTION_SAVE,
+		"Cancel",
+		gtk.RESPONSE_CANCEL,
+		"Save",
+		gtk.RESPONSE_ACCEPT,
+	)
+	if err != nil {
+		showErrorDialog(parent, "Error creating save dialog: "+err.Error())
+		return
+	}
+	defer saveDialog.Destroy()
+
+	// Set file filter
+	filter, err := gtk.FileFilterNew()
+	if err != nil {
+		showErrorDialog(parent, "Error creating file filter: "+err.Error())
+		return
+	}
+	filter.SetName("LDIF Files")
+	filter.AddPattern("*.ldif")
+	saveDialog.AddFilter(filter)
+	saveDialog.SetCurrentName("structure.ldif")
+
+	if saveDialog.Run() != gtk.RESPONSE_ACCEPT {
+		return
+	}
+
+	// Get filename
+	filename := saveDialog.GetFilename()
+	if !strings.HasSuffix(filename, ".ldif") {
+		filename += ".ldif"
+	}
+
+	// Create output file
+	file, err := os.Create(filename)
+	if err != nil {
+		showErrorDialog(parent, "Error creating file: "+err.Error())
+		return
+	}
+	defer file.Close()
+	////////////////////////////////////////////////////////////////////////////////////////
+	// Generate LDIF content
+
+	/*
+		iter := store.Append(parent)
+		store.SetValue(iter, 0, node.Name)
+
+		for _, child := range node.Children {
+			populateTreeStore(store, iter, child)
+		}
+
+		node.Name
+		node.Children
+
+		var buf bytes.Buffer
+		for _, entry := range entries {
+			buf.WriteString(fmt.Sprintf("dn: cn=%s,%s\n", entry.DN, baseDN))
+			buf.WriteString("objectClass: inetOrgPerson\n")
+			buf.WriteString(fmt.Sprintf("cn: %s\n", entry.CN))
+			buf.WriteString(fmt.Sprintf("sn: %s\n", entry.SN))
+
+			if entry.OU != "" {
+				buf.WriteString(fmt.Sprintf("ou: %s\n", entry.OU))
+			}
+			if entry.Title != "" {
+				buf.WriteString(fmt.Sprintf("title: %s\n", entry.Title))
+			}
+			if entry.Mail != "" {
+				buf.WriteString(fmt.Sprintf("mail: %s\n", entry.Mail))
+			}
+			if entry.GivenName != "" {
+				buf.WriteString(fmt.Sprintf("givenName: %s\n", entry.GivenName))
+			}
+			if entry.Initials != "" {
+				buf.WriteString(fmt.Sprintf("initials: %s\n", entry.Initials))
+			}
+			if entry.TelephoneNumber != "" {
+				buf.WriteString(fmt.Sprintf("telephoneNumber: %s\n", entry.TelephoneNumber))
+			}
+			if entry.L != "" {
+				buf.WriteString(fmt.Sprintf("l: %s\n", entry.L))
+			}
+			if entry.PostalAddress != "" {
+				buf.WriteString(fmt.Sprintf("postalAddress: %s\n", entry.PostalAddress))
+			}
+			if entry.O != "" {
+				buf.WriteString(fmt.Sprintf("o: %s\n", entry.O))
+			}
+			buf.WriteString("\n")
+		}
+	*/
+	////////////////////////////////////////////////////////////////////////////////////////
+
+	// Write to file
+	if _, err := file.Write(buf.Bytes()); err != nil {
+		showErrorDialog(parent, "Error writing to file: "+err.Error())
+		return
+	}
+
+	// showInfoDialog(parent, fmt.Sprintf(
+	//
+	//	"Successfully exported %d entries to:\n%s",
+	//	len(entries),
+	//	filename,
+	//
+	// ))
 }
 
 func exportToLDIF(parent *gtk.Window, entries []LDIFEntry, baseDN string) {
