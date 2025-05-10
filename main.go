@@ -207,7 +207,29 @@ func createMainWindow() (*gtk.Window, error) {
 		}
 		filter.SetName("LDIF Files")
 		filter.AddPattern("*.ldif")
+		//	filter.AddPattern("*.txt")
+		//		filter.AddPattern("*.*")
 		fileChooser.AddFilter(filter)
+
+		filter2, err := gtk.FileFilterNew()
+		if err != nil {
+			log.Println("Error creating file filter:", err)
+			return
+		}
+		filter2.SetName("TXT Files")
+		//	filter2.AddPattern("*.ldif")
+		filter2.AddPattern("*.txt")
+		fileChooser.AddFilter(filter2)
+
+		filter3, err := gtk.FileFilterNew()
+		if err != nil {
+			log.Println("Error creating file filter:", err)
+			return
+		}
+		filter3.SetName("All Files")
+		//	filter2.AddPattern("*.ldif")
+		filter3.AddPattern("*.*")
+		fileChooser.AddFilter(filter3)
 
 		if fileChooser.Run() == gtk.RESPONSE_ACCEPT {
 			filename := fileChooser.GetFilename()
@@ -985,10 +1007,10 @@ func exportTreeToLDIF(parent *gtk.Window, treeStore *gtk.TreeStore, node *OrgNod
 	////////////////////////////////////////////////////////////////////////////////////////
 
 	// Write to file
-	if _, err := file.Write(buf.Bytes()); err != nil {
-		showErrorDialog(parent, "Error writing to file: "+err.Error())
-		return
-	}
+	//	if _, err := file.Write(buf.Bytes()); err != nil {
+	//		showErrorDialog(parent, "Error writing to file: "+err.Error())
+	//		return
+	//	}
 
 	// showInfoDialog(parent, fmt.Sprintf(
 	//
